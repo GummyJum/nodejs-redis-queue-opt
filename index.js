@@ -43,7 +43,6 @@ client.on('ready', () => {
     app.listen(port, '0.0.0.0', () => {})
 })
 
-// each n requests or x time send to redis
 app.get('/card_add', async (req, res) => {
     const key = 'u:' + req.query.id
     msgQueue.push({id: key, res:res});
