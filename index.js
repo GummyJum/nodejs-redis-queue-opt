@@ -2,9 +2,12 @@ const fs = require('fs');
 const express = require('express')
 const app = express()
 const port = +process.argv[2] || 3000
+
 const cards = JSON.parse(fs.readFileSync('./cards.json'));
+const lastSend = Date.now()
 
 let msgQueue = []
+let isThereATimeout = false
 
 const client = require('redis').createClient()
 client.on('error', (err) => console.log('Redis Client Error', err));
@@ -26,9 +29,9 @@ async function redisIncrAll() {
     pipe.exec().then((data) => {
         data.forEach((cardInd, idx) => {
             if (cardInd > cards.length)
-                curMsgQueue[idx].res.send({id: 'ALL CARDS'})
+                curMsgQueue[idx].res.send({id: 'ALL CARDS', name: ''})
             else
-                curMsgQueue[idx].res.send(cards[cardInd])
+                curMsgQueue[idx].res.send(cards[cardInd-1])
         })
     })
     
