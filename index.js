@@ -3,11 +3,12 @@ const turbo = require('turbo-http')
 
 const port = +process.argv[2] || 3000
 
-const cards = JSON.parse(fs.readFileSync('./cards.json'));
-let msgQueue = []
+let cards = JSON.parse(fs.readFileSync('./cards.json'));
+cards.forEach((elem, idx) => {
+    cards[idx] = Buffer.from('{"id":"' + elem.id + '","name":"' + elem.name + '"}')
+})
 
-const client = require('redis').createClient()
-client.on('error', (err) => console.log('Redis Client Error', err));
+let msgQueue = []
 
 allBuf = Buffer.from('{"id": "ALL CARDS", "name": ""}')
 readyBuf = Buffer.from('{"ready": true}')
@@ -33,9 +34,8 @@ async function redisIncrAll() {
                 curMsgQueue[idx].res.setHeader('Content-Length', allBuf.length)
                 curMsgQueue[idx].res.write(allBuf)
             } else {
-                let cur = Buffer.from('{"id":"' + cards[cardInd-1].id + '","name":"' + cards[cardInd-1].name + '"}')
-                curMsgQueue[idx].res.setHeader('Content-Length', cur.length)
-                curMsgQueue[idx].res.write(cur)
+                curMsgQueue[idx].res.setHeader('Content-Length', cards[cardInd-1].length)
+                curMsgQueue[idx].res.write(cards[cardInd-1])
             }
         })
     })
@@ -52,10 +52,12 @@ const app = turbo.createServer(function (req, res) {
     }
 })
 
+const client = require('redis').createClient()
+// client.on('error', (err) => console.log('Redis Client Error', err));
+
 client.on('ready', () => {
     setTimeout(() => redisIncrAll(), 2)
     app.listen(port)
 })
-
 
 client.connect();
