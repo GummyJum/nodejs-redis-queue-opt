@@ -4,10 +4,7 @@ const app = express()
 const port = +process.argv[2] || 3000
 
 const cards = JSON.parse(fs.readFileSync('./cards.json'));
-const lastSend = Date.now()
-
 let msgQueue = []
-let isThereATimeout = false
 
 const client = require('redis').createClient()
 client.on('error', (err) => console.log('Redis Client Error', err));
