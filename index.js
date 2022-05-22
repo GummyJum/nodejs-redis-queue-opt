@@ -1,6 +1,6 @@
 const fs = require('fs');
-const express = require('express')
-const app = express()
+const turbo = require('turbo-http')
+
 const port = +process.argv[2] || 3000
 
 const cards = JSON.parse(fs.readFileSync('./cards.json'));
@@ -8,6 +8,10 @@ let msgQueue = []
 
 const client = require('redis').createClient()
 client.on('error', (err) => console.log('Redis Client Error', err));
+
+allBuf = Buffer.from('{"id": "ALL CARDS", "name": ""}')
+readyBuf = Buffer.from('{"ready": true}')
+prefixLen = '/card_add?id='.length
 
 async function redisIncrAll() {
     if (msgQueue.length < 1){
@@ -25,28 +29,33 @@ async function redisIncrAll() {
 
     pipe.exec().then((data) => {
         data.forEach((cardInd, idx) => {
-            if (cardInd > cards.length)
-                curMsgQueue[idx].res.send({id: 'ALL CARDS', name: ''})
-            else
-                curMsgQueue[idx].res.send(cards[cardInd-1])
+            if (cardInd > cards.length) {
+                curMsgQueue[idx].res.setHeader('Content-Length', allBuf.length)
+                curMsgQueue[idx].res.write(allBuf)
+            } else {
+                let cur = Buffer.from('{"id":"' + cards[cardInd-1].id + '","name":"' + cards[cardInd-1].name + '"}')
+                curMsgQueue[idx].res.setHeader('Content-Length', cur.length)
+                curMsgQueue[idx].res.write(cur)
+            }
         })
     })
     
     setImmediate(() => redisIncrAll())
 }
 
+const app = turbo.createServer(function (req, res) {
+    if (req.url[1] == 'c') { // add_card
+        msgQueue.push({id: req.url.substr(prefixLen), res:res});
+    } else { // ready
+        res.setHeader('Content-Length', readyBuf.length)
+        res.write(readyBuf)
+    }
+})
+
 client.on('ready', () => {
     setTimeout(() => redisIncrAll(), 2)
-    app.listen(port, '0.0.0.0', () => {})
+    app.listen(port)
 })
 
-app.get('/card_add', async (req, res) => {
-    const key = 'u:' + req.query.id
-    msgQueue.push({id: key, res:res});
-})
-
-app.get('/ready', async (req, res) => {
-    res.send({ready: true})
-})
 
 client.connect();
